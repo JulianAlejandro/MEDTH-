@@ -1,0 +1,16 @@
+Analysis & Synthesis Status : Successful - Fri Mar 29 17:35:31 2019
+Quartus Prime Version : 16.0.0 Build 211 04/27/2016 SJ Lite Edition
+Revision Name : MEDTH
+Top-level Entity Name : MEDTH
+Family : MAX 10
+Total logic elements : 1,018
+    Total combinational functions : 964
+    Dedicated logic registers : 382
+Total registers : 382
+Total pins : 28
+Total virtual pins : 0
+Total memory bits : 4,096
+Embedded Multiplier 9-bit elements : 0
+Total PLLs : 1
+UFM blocks : 0
+ADC blocks : 0

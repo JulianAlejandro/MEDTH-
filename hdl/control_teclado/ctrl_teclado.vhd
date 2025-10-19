@@ -1,0 +1,158 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_unsigned.all;
+ 
+ entity ctrl_teclado is
+
+ generic(TICS_2s: in natural:= 400);
+
+ port(clk:          in        std_logic;
+     nRst:          in        std_logic;
+     tic_5ms :      in        std_logic;
+     columna:       in	      std_logic_vector(3 downto 0);
+     fila:          buffer    std_logic_vector(3 downto 0);
+     tecla:         buffer    std_logic_vector(3 downto 0);
+     pulso_largo:   buffer    std_logic;
+     tecla_pulsada: buffer    std_logic
+      );
+ end entity;
+
+architecture rtl of ctrl_teclado is
+
+ signal columna_reg:     std_logic_vector(3 downto 0);  -- Entradas registradas procedentes de las columnas del teclado.
+ signal cnt_2s:          std_logic_vector(8 downto 0);  -- Contador de modulo 400
+ signal puls_menor2s:    std_logic;		        -- Segnal que se activa cuando la pulsacion es menor de 2 seg
+ signal ena_desp:        std_logic;                     -- Se activa cuando detecta una pulsacion en alguna columna
+ signal pulsacion:       std_logic;		        -- Indica a nivel alto que una tecla esta siendo pulsada (cualquiera)
+ signal tecla_conf:      std_logic;		        -- Segnal que almacena el estado de la tecla para ser conformada.
+ signal fin_tecla:       std_logic;
+ signal tecla_reg:       std_logic_vector(3 downto 0);
+ signal columna_ena_reg: std_logic_vector(3 downto 0);
+
+
+
+  begin 
+
+ --Regristra la entrada columna
+
+  process(nRst, clk)
+  begin
+   if nRst = '0' then
+      columna_ena_reg <=  (others=>'1');
+
+    elsif clk'event and clk = '1' then
+      if tic_5ms = '1' then
+        columna_ena_reg <= columna_reg;
+      end if;
+     end if;
+   end process;
+
+  process(nRst, clk)
+  begin
+   if nRst = '0' then
+      columna_reg <=  (others=>'1');
+
+    elsif clk'event and clk = '1' then
+        columna_reg <= columna;
+     end if;
+   end process;
+ --Registro de desplazamiento para muestrear las filas del teclado.
+  process(nRst,clk)
+  begin
+   if nRst = '0' then
+	fila <= X"E";
+
+   elsif clk'event and clk = '1' then
+
+     if tic_5ms = '1' and ena_desp = '1' then
+	fila <= fila(2 downto 0)&fila(3);
+      end if;
+    end if;
+  end process;
+
+
+
+
+  -- Cuando no se produce ninguna pulsacion en las teclas, las columnas del teclado hexadcimal permanecen a nivel alto
+  -- Si ena_desp vale '0', se para de muestrear las columnas y se mantiene activa la fila mientras la tecla permanezca pulsada.
+
+  ena_desp <= '1' when columna_reg = X"F" else
+	      '0'; 
+
+  pulsacion <= '1' when columna_ena_reg /= X"F" else
+	       '0';
+
+  process(nRst,clk)
+  begin
+   if nRst = '0' then
+	cnt_2s <=(0 => '1', others=>'0');
+
+   elsif clk'event and clk = '1' then
+	if tic_5ms = '1' and pulsacion = '0' then
+	  cnt_2s <= (0 => '1' , others=>'0');
+
+	elsif tic_5ms = '1' and pulso_largo = '0' then
+	  cnt_2s <= cnt_2s + 1;
+	end if;
+   end if;
+  end process;
+
+  puls_menor2s <= '1' when cnt_2s < TICS_2s and fin_tecla = '1' else
+		  '0';
+
+    
+  pulso_largo <= '1' when cnt_2s = TICS_2s and pulsacion = '1' else
+  	         '0';
+
+
+  fin_tecla <= '1' when cnt_2s /= 1 and ena_desp = '1' else
+	       '0';
+
+  -- Bloque conformador de pulsos.
+
+  process(nRst,clk)
+  begin
+   if nRst = '0' then
+      tecla_conf <= '0';
+
+   elsif clk'event and clk = '1' then
+      tecla_conf <= puls_menor2s;
+     end if;
+  end process;
+
+
+  tecla_pulsada <= '1' when tecla_conf = '0' and puls_menor2s = '1' else -- Puede que haya que registrarla
+		   '0';
+
+   
+
+  tecla_reg <= X"1" when columna_ena_reg(0)= '0' and fila(0)= '0' else
+	       X"2" when columna_ena_reg(1)= '0' and fila(0)= '0' else
+       	       X"3" when columna_ena_reg(2)= '0' and fila(0)= '0' else
+	       X"F" when columna_ena_reg(3)= '0' and fila(0)= '0' else
+	       X"4" when columna_ena_reg(0)= '0' and fila(1)= '0' else
+               X"5" when columna_ena_reg(1)= '0' and fila(1)= '0' else
+	       X"6" when columna_ena_reg(2)= '0' and fila(1)= '0' else
+	       X"E" when columna_ena_reg(3)= '0' and fila(1)= '0' else
+   	       X"7" when columna_ena_reg(0)= '0' and fila(2)= '0' else
+	       X"8" when columna_ena_reg(1)= '0' and fila(2)= '0' else
+   	       X"9" when columna_ena_reg(2)= '0' and fila(2)= '0' else
+	       X"D" when columna_ena_reg(3)= '0' and fila(2)= '0' else
+	       X"A" when columna_ena_reg(0)= '0' and fila(3)= '0' else
+	       X"0" when columna_ena_reg(1)= '0' and fila(3)= '0' else
+	       X"B" when columna_ena_reg(2)= '0' and fila(3)= '0' else
+               X"C" when columna_ena_reg(3)= '0' and fila(3)= '0' else
+	       (others => 'X');
+
+  -- Registro de la tecla pulsada.
+  process(nRst,clk)
+  begin
+   if nRst = '0' then
+      tecla <= (others => '0');
+
+   elsif clk'event and clk = '1' then
+      tecla <= tecla_reg;
+     end if;
+  end process;
+ 
+ end rtl;
